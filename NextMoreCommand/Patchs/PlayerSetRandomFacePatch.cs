@@ -572,7 +572,8 @@ namespace SkySwordKill.NextMoreCommand.Patchs
                         var trackEntry = skeletonAnimation1.AnimationState.GetCurrent(0);
                         if (trackEntry != null)
                         {
-                            skeletonAnimation1.AnimationState.ClearTrack(0);
+                                skeletonAnimation1.AnimationState.ClearTracks();
+                                skeletonAnimation1.skeleton.SetToSetupPose();
                         }
                         skeletonAnimation1.AnimationState.SetAnimation(0, name, isIdle);
 
