@@ -1,17 +1,10 @@
 ﻿using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using BehaviorDesigner.Runtime.Tasks.Basic.UnityGameObject;
 using Fungus;
 using HarmonyLib;
 using JiaoYi;
-using KBEngine;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-// using ProGif.GifManagers;
-// using ProGif.Lib;
-using SkySwordKill.Next.DialogEvent;
 using SkySwordKill.Next.DialogSystem;
 using SkySwordKill.NextMoreCommand.NextCommandExtension.Utils;
 using SkySwordKill.NextMoreCommand.Utils;
@@ -19,12 +12,8 @@ using Spine;
 using Spine.Unity;
 using Tab;
 using UnityEngine;
-using UnityEngine.Serialization;
-using YSGame.Fight;
-using AnimationState = Spine.AnimationState;
 using Avatar = KBEngine.Avatar;
 using GameObject = UnityEngine.GameObject;
-using Image = UnityEngine.UI.Image;
 using Object = UnityEngine.Object;
 
 namespace SkySwordKill.NextMoreCommand.Patchs
@@ -454,21 +443,100 @@ namespace SkySwordKill.NextMoreCommand.Patchs
         }
     }
 
+    public class SpineAvatarInfo
+    {
+        public void Init(int id)
+        {
+            Id = id;
+            FaceSpine = GetFaceSpine();
+            var (result, skeletonData) = GetSkeletonData();
+            Result = result;
+            SkeletonDataAsset = skeletonData;
+            GetFaceSpineSkin();
+        }
+        public Action<TrackEntry, SpineAvatarInfo> OnStartAnimator;
+        public void InitPlayer()
+        {
+            Id = 1;
+            SkeletonDataAsset skeletonData;
+            SkinDefault = "default";
+            var spine     = DialogAnalysis.GetStr("PLAYER_SPINE");
+            var spineSkin = DialogAnalysis.GetStr("PLAYER_SPINE_SKIN");
+            if (int.TryParse(spine, out var id))
+            {
+                if (AssetsUtils.GetSkeletonData(id, out skeletonData))
+                {
+                    FaceSpine = id.ToString();
+                    Skin = AssetsUtils.CheckSkin(id, spineSkin) ? spineSkin : "default";
+
+                }
+            }
+            else
+            {
+                if (AssetsUtils.GetSkeletonData(spine, out skeletonData))
+                {
+                    FaceSpine = spine;
+                    Skin = AssetsUtils.CheckSkin(spine, spineSkin) ? spineSkin : "default";
+                }
+            }
+            Result = skeletonData != null;
+            SkeletonDataAsset = skeletonData;
+        }
+        public void StartAnimator(TrackEntry entry)
+        {
+            if (skeletonAnimation is null) return;
+            if (OnStartAnimator != null)
+            {
+                OnStartAnimator(entry, this);
+                return;
+            }
+            var name         = entry.Animation.Name;
+            var hasAnimation = AssetsUtils.CheckAnimation(FaceSpine, name, out var isIdle);
+            if (!hasAnimation) return;
+            var trackEntry = skeletonAnimation.AnimationState.GetCurrent(0);
+            if (trackEntry != null)
+            {
+                skeletonAnimation.AnimationState.ClearTrack(0);
+            }
+            skeletonAnimation.AnimationState.SetAnimation(0, name, isIdle);
+        }
+
+        public SkeletonAnimation skeletonAnimation { get; set; }
+        public bool              Result;
+        public int               Id                { get; set; } = 0;
+        public string            FaceSpine         { get; set; }
+        public SkeletonDataAsset SkeletonDataAsset { get; set; }
+        public string            Skin              { get; set; }
+        public string            SkinDefault       { get; set; }
+        public void GetFaceSpineSkin()
+        {
+            SkinDefault = NpcUtils.GetNpcDefaultSkinSpine(Id);
+            Skin = NpcUtils.GetNpcSkinSpine(Id);
+        }
+        public string                    GetFaceSpine()    => NpcUtils.GetNpcFaceSpine(Id);
+        public (bool, SkeletonDataAsset) GetSkeletonData() => AssetsUtils.GetSkeletonData(FaceSpine, out var skeletonData) ? (true, skeletonData) : (false, null);
+
+        public bool HasFightSpine() => NpcUtils.GetNpcFightSpine(Id);
+    }
+
+
     [HarmonyPatch(typeof(PlayerSetRandomFace), nameof(PlayerSetRandomFace.randomAvatar))]
     public static class PlayerSetRandomFaceRandomAvatarPatch
     {
-        public static  int             m_avartarID;
-        public static  bool            m_customSpine;
-        private static SkeletonGraphic skeletonGraphic;
-        private static int             avartarID;
-        private static CustomSpine     customSpine;
+        public static int             m_avartarID;
+        public static bool            m_customSpine;
+        public static SkeletonGraphic skeletonGraphic;
+        public static int             avartarID;
+        public static CustomSpine     customSpine;
         // public static List<int> CustomNpc = new List<int>()
         // {
         //     8471,
         //     9740,
         //     7200
         // };
-        public static bool PlayerInit;
+        public static bool                          PlayerInit;
+        public static event Action<SpineAvatarInfo> OnSetSpineAvatar;
+
         public static bool SetSpine(PlayerSetRandomFace __instance)
         {
 
@@ -481,49 +549,35 @@ namespace SkySwordKill.NextMoreCommand.Patchs
             var               skeletonAnimation = __instance.GetComponent<SkeletonAnimation>();
             var               skin              = string.Empty;
             SkeletonDataAsset skeletonData;
-            var               key = string.Empty;
+            var               key         = string.Empty;
+            var               spineAvatar = new SpineAvatarInfo();
             if (avartarID == 1)
             {
-                var spine     = DialogAnalysis.GetStr("PLAYER_SPINE");
-                var spineSkin = DialogAnalysis.GetStr("PLAYER_SPINE_SKIN");
-                if (int.TryParse(spine, out var id))
-                {
-                    if (AssetsUtils.GetSkeletonData(id, out skeletonData))
-                    {
-                        key = id.ToString();
-                        skin = AssetsUtils.CheckSkin(id, spineSkin) ? spineSkin : "default";
-                    }
-                }
-                else
-                {
-                    if (AssetsUtils.GetSkeletonData(spine, out skeletonData))
-                    {
-                        key = spine;
-                        skin = AssetsUtils.CheckSkin(spine, spineSkin) ? spineSkin : "default";
-                    }
-                }
-                if (skeletonData == null)
+                spineAvatar.InitPlayer();
+                OnSetSpineAvatar?.Invoke(spineAvatar);
+                if (!spineAvatar.Result)
                 {
                     return false;
                 }
+                key = spineAvatar.FaceSpine;
+                skin = spineAvatar.Skin;
+                skeletonData = spineAvatar.SkeletonDataAsset;
+
             }
             else
 
             {
-                if (!NpcUtils.GetNpcFightSpine(avartarID))
+                spineAvatar.Init(avartarID);
+                OnSetSpineAvatar?.Invoke(spineAvatar);
+                if (!spineAvatar.HasFightSpine() || !spineAvatar.Result)
                 {
                     return false;
                 }
-                key = NpcUtils.GetNpcFaceSpine(avartarID);
-                var result = AssetsUtils.GetSkeletonData(key, out skeletonData);
+                key = spineAvatar.FaceSpine;
+                skeletonData = spineAvatar.SkeletonDataAsset;
                 MyLog.Log($"key:{key}");
-                if (!result || skeletonData == null)
-                {
-                    return false;
-                }
-                var skinName = NpcUtils.GetNpcSkinSpine(avartarID);
-                skin = AssetsUtils.CheckSkin(key, skinName) ? skinName : NpcUtils.GetNpcDefaultSkinSpine(avartarID);
-                MyLog.Log($"key:{key} skinName:{skinName} skin:{skin}");
+                skin = spineAvatar.Skin;
+                MyLog.Log($"key:{key} skinName:{skin} skin:{skin}");
             }
 
 
@@ -564,20 +618,8 @@ namespace SkySwordKill.NextMoreCommand.Patchs
                     skeletonAnimation1.initialSkinName = skin;
                     skeletonAnimation1.AnimationName = "Idle_0";
                     skeletonAnimation1.Initialize(true);
-                    skeletonAnimation.AnimationState.Start += entry =>
-                    {
-                        var name         = entry.Animation.Name;
-                        var hasAnimation = AssetsUtils.CheckAnimation(key, name, out var isIdle);
-                        if (!hasAnimation) return;
-                        var trackEntry = skeletonAnimation1.AnimationState.GetCurrent(0);
-                        if (trackEntry != null)
-                        {
-                                skeletonAnimation1.AnimationState.ClearTracks();
-                                skeletonAnimation1.skeleton.SetToSetupPose();
-                        }
-                        skeletonAnimation1.AnimationState.SetAnimation(0, name, isIdle);
-
-                    };
+                    spineAvatar.skeletonAnimation = skeletonAnimation1;
+                    skeletonAnimation.AnimationState.Start += spineAvatar.StartAnimator;
                     m_customSpine = true;
                     customSpine = gameObject.AddMissingComponent<CustomSpine>();
                     customSpine.SetAvatar(key);
