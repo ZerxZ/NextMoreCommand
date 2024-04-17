@@ -450,7 +450,7 @@ namespace SkySwordKill.NextMoreCommand.Patchs
             Id = id;
             FaceSpine = GetFaceSpine();
             var (result, skeletonData) = GetSkeletonData();
-            Result = result;
+            Result = result && skeletonData != null;
             SkeletonDataAsset = skeletonData;
             GetFaceSpineSkin();
         }
@@ -536,6 +536,21 @@ namespace SkySwordKill.NextMoreCommand.Patchs
         // };
         public static bool                          PlayerInit;
         public static event Action<SpineAvatarInfo> OnSetSpineAvatar;
+        public static void CustomSpineXXX()
+        {
+            PlayerSetRandomFaceRandomAvatarPatch.OnSetSpineAvatar += (spineAvatar) =>
+            {
+                // 判断是否是自定义的NPC
+                if (spineAvatar.Id ==7200)
+                {
+                    
+                    spineAvatar.OnStartAnimator = (entry, info) =>
+                    {
+                       //修改动画逻辑
+                    };
+                }
+            };
+        }
 
         public static bool SetSpine(PlayerSetRandomFace __instance)
         {
