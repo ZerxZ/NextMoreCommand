@@ -476,7 +476,6 @@ namespace SkySwordKill.NextMoreCommand.Patchs
             else
             {
                 NpcUtils.SetNpcFaceSpine(Id, spine);
-
             }
         }
         public void SetSkin(string skin, string defaultSkin, bool force = false)
