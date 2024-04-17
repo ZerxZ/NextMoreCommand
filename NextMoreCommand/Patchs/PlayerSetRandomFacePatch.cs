@@ -454,6 +454,55 @@ namespace SkySwordKill.NextMoreCommand.Patchs
             SkeletonDataAsset = skeletonData;
             GetFaceSpineSkin();
         }
+        public void Refresh()
+        {
+            FaceSpine ??= GetFaceSpine();
+            var (result, skeletonData) = GetSkeletonData();
+            Result = result && skeletonData != null;
+            SkeletonDataAsset = skeletonData;
+            GetFaceSpineSkin();
+        }
+        public void SetSpine(string spine, bool force = false)
+        {
+            FaceSpine = spine;
+            if (!force)
+            {
+                return;
+            }
+            if (Id == 1)
+            {
+                DialogAnalysis.SetStr("PLAYER_SPINE", spine);
+            }
+            else
+            {
+                NpcUtils.SetNpcFaceSpine(Id, spine);
+
+            }
+
+        }
+        public void SetSkin(string skin, string defaultSkin, bool force = false)
+        {
+
+            Skin = skin;
+            SkinDefault = defaultSkin;
+            if (!force)
+            {
+                return;
+            }
+            if (Id == 1)
+            {
+
+                DialogAnalysis.SetStr("PLAYER_SPINE_SKIN", skin);
+
+            }
+            else
+            {
+
+                NpcUtils.SetNpcSkinSpine(Id, skin);
+                NpcUtils.SetNpcDefaultSkinSpine(Id, defaultSkin);
+
+            }
+        }
         public Action<TrackEntry, SpineAvatarInfo> OnStartAnimator;
         public void InitPlayer()
         {
@@ -479,7 +528,7 @@ namespace SkySwordKill.NextMoreCommand.Patchs
                     Skin = AssetsUtils.CheckSkin(spine, spineSkin) ? spineSkin : "default";
                 }
             }
-            Result = skeletonData != null;
+            Result = skeletonData == null;
             SkeletonDataAsset = skeletonData;
         }
         public void StartAnimator(TrackEntry entry)
@@ -500,18 +549,20 @@ namespace SkySwordKill.NextMoreCommand.Patchs
             }
             skeletonAnimation.AnimationState.SetAnimation(0, name, isIdle);
         }
+        public bool IsFightScene => NpcUtils.IsFightScene;
 
         public SkeletonAnimation skeletonAnimation { get; set; }
         public bool              Result;
         public int               Id                { get; set; } = 0;
-        public string            FaceSpine         { get; set; }
+        public string            FaceSpine         { get; set; } = null;
         public SkeletonDataAsset SkeletonDataAsset { get; set; }
-        public string            Skin              { get; set; }
-        public string            SkinDefault       { get; set; }
+        public string            Skin              { get; set; } = null;
+        public string            SkinDefault       { get; set; } = null;
         public void GetFaceSpineSkin()
         {
-            SkinDefault = NpcUtils.GetNpcDefaultSkinSpine(Id);
-            Skin = NpcUtils.GetNpcSkinSpine(Id);
+            SkinDefault ??= NpcUtils.GetNpcDefaultSkinSpine(Id);
+            Skin ??= NpcUtils.GetNpcSkinSpine(Id);
+            Skin = AssetsUtils.CheckSkin(FaceSpine, Skin) ? Skin : SkinDefault;
         }
         public string                    GetFaceSpine()    => NpcUtils.GetNpcFaceSpine(Id);
         public (bool, SkeletonDataAsset) GetSkeletonData() => AssetsUtils.GetSkeletonData(FaceSpine, out var skeletonData) ? (true, skeletonData) : (false, null);
@@ -541,13 +592,19 @@ namespace SkySwordKill.NextMoreCommand.Patchs
             PlayerSetRandomFaceRandomAvatarPatch.OnSetSpineAvatar += (spineAvatar) =>
             {
                 // 判断是否是自定义的NPC
-                if (spineAvatar.Id ==7200)
+                if (spineAvatar.Id == 7200 && spineAvatar.IsFightScene)
                 {
-                    
+                    //设置骨骼文件
+                    spineAvatar.SetSpine("7200");
+                    //设置皮肤
+                    spineAvatar.SetSkin("幼年小江", "成人小江");
+                    //设置动画逻辑
                     spineAvatar.OnStartAnimator = (entry, info) =>
                     {
-                       //修改动画逻辑
+                        //修改动画逻辑
                     };
+                    //刷新
+                    spineAvatar.Refresh();
                 }
             };
         }
@@ -570,7 +627,7 @@ namespace SkySwordKill.NextMoreCommand.Patchs
             {
                 spineAvatar.InitPlayer();
                 OnSetSpineAvatar?.Invoke(spineAvatar);
-                if (!spineAvatar.Result)
+                if (spineAvatar.Result)
                 {
                     return false;
                 }
