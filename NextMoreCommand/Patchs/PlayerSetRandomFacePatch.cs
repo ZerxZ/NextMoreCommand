@@ -509,6 +509,7 @@ namespace SkySwordKill.NextMoreCommand.Patchs
             SkinDefault = "default";
             var spine     = DialogAnalysis.GetStr("PLAYER_SPINE");
             var spineSkin = DialogAnalysis.GetStr("PLAYER_SPINE_SKIN");
+            Result = true;
             if (int.TryParse(spine, out var id))
             {
                 if (AssetsUtils.GetSkeletonData(id, out skeletonData))
@@ -526,7 +527,11 @@ namespace SkySwordKill.NextMoreCommand.Patchs
                     Skin = AssetsUtils.CheckSkin(spine, spineSkin) ? spineSkin : "default";
                 }
             }
-            Result = skeletonData == null;
+            if (skeletonData is null)
+            {
+                return;
+            }
+            Result = false;
             SkeletonDataAsset = skeletonData;
         }
         public void StartAnimator(TrackEntry entry)
@@ -585,27 +590,8 @@ namespace SkySwordKill.NextMoreCommand.Patchs
         // };
         public static bool                          PlayerInit;
         public static event Action<SpineAvatarInfo> OnSetSpineAvatar;
-        public static void CustomSpineXXX()
-        {
-            PlayerSetRandomFaceRandomAvatarPatch.OnSetSpineAvatar += (spineAvatar) =>
-            {
-                // 判断是否是自定义的NPC
-                if (spineAvatar.Id == 7200 && spineAvatar.IsFightScene)
-                {
-                    //设置骨骼文件
-                    spineAvatar.SetSpine("7200");
-                    //设置皮肤
-                    spineAvatar.SetSkin("幼年小江", "成人小江");
-                    //设置动画逻辑
-                    spineAvatar.OnStartAnimator = (entry, info) =>
-                    {
-                        //修改动画逻辑
-                    };
-                    //刷新
-                    spineAvatar.Refresh();
-                }
-            };
-        }
+        
+        
 
         public static bool SetSpine(PlayerSetRandomFace __instance)
         {
@@ -615,7 +601,7 @@ namespace SkySwordKill.NextMoreCommand.Patchs
             {
                 PlayerInit = true;
             }
-
+            
             var               skeletonAnimation = __instance.GetComponent<SkeletonAnimation>();
             var               skin              = string.Empty;
             SkeletonDataAsset skeletonData;
@@ -629,13 +615,8 @@ namespace SkySwordKill.NextMoreCommand.Patchs
                 {
                     return false;
                 }
-                key = spineAvatar.FaceSpine;
-                skin = spineAvatar.Skin;
-                skeletonData = spineAvatar.SkeletonDataAsset;
-
             }
             else
-
             {
                 spineAvatar.Init(avartarID);
                 OnSetSpineAvatar?.Invoke(spineAvatar);
@@ -643,14 +624,11 @@ namespace SkySwordKill.NextMoreCommand.Patchs
                 {
                     return false;
                 }
-                key = spineAvatar.FaceSpine;
-                skeletonData = spineAvatar.SkeletonDataAsset;
-                MyLog.Log($"key:{key}");
-                skin = spineAvatar.Skin;
-                MyLog.Log($"key:{key} skinName:{skin} skin:{skin}");
             }
-
-
+            key = spineAvatar.FaceSpine;
+            skin = spineAvatar.Skin;
+            skeletonData = spineAvatar.SkeletonDataAsset;
+            MyLog.Log($"key:{key} skinName:{skin} skin:{skin}");
             if (skeletonGraphic != null)
             {
 

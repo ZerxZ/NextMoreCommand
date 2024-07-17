@@ -98,10 +98,12 @@ public static class UiUtils
             return;
         }
 
-        TabUIMag.OpenTab(3);
-        var tabUIMag    = TabUIMag.Instance;
+        if (TabUIMag.Instance != null)
+        {
+            var tabUIMag    = TabUIMag.Instance;
+            tabUIMag.TryEscClose();
+        }
         var spriteMoney = SpriteMoney;
-        tabUIMag.TryEscClose();
         if (isMoney && spriteMoney == null)
         {
             return;
